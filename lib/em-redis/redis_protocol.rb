@@ -408,6 +408,7 @@ module EventMachine
         @multibulk_n     = false
         @reconnecting    = false
         @connected       = true
+        @current_multibulk_n = false
 
         succeed
       end
@@ -464,8 +465,13 @@ module EventMachine
           if multibulk_count == -1 || multibulk_count == 0
             dispatch_response([])
           else
-            @multibulk_n = multibulk_count
-            @multibulk_values = []
+            if @multibulk_n and @multibulk_n > 0
+              @current_multibulk_n = multibulk_count
+              @current_multibulk_values = []
+            else
+              @multibulk_n = multibulk_count
+              @multibulk_values = []
+            end
           end
         # Whu?
         else
@@ -476,6 +482,16 @@ module EventMachine
 
       def dispatch_response(value)
         if @multibulk_n
+          if @current_multibulk_n
+            if @current_multibulk_n > 0
+              @current_multibulk_values << value
+              @current_multibulk_n -= 1
+              return if @current_multibulk_n > 0
+            end
+            value = @current_multibulk_values
+            @current_multibulk_n = false
+          end
+
           @multibulk_values << value
           @multibulk_n -= 1
 
